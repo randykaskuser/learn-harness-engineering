@@ -22,13 +22,13 @@ This directory contains reusable AI agent skills for the Learn Harness Engineeri
 
 ## Available Skills
 
-### harness-creator
+### harness-creator (Hybrid: Harness Engineering + `ai-memory`)
 
-Production harness engineering skill for AI coding agents. Helps create, assess, and improve agent harness files (AGENTS.md, feature lists, verification workflows, session continuity mechanisms).
+Production hybrid harness engineering skill for AI coding agents. Combines **Harness Engineering** (in-repo instructions, one-feature-at-a-time scope, and fail-fast verification gates) with **[`akitaonrails/ai-memory`](https://github.com/akitaonrails/ai-memory)** (zero-LLM lifecycle memory capture & cross-agent handoffs) and a portable `active_context` checkpoint inside `feature_list.json` for cross-PC git continuity — eliminating redundant `progress.md` and `session-handoff.md` repo files.
 
-- **7 reference patterns**: Memory Persistence, Skill Runtime, Context Engineering, Tool Registry, Multi-Agent Coordination, Lifecycle & Bootstrap, Gotchas
-- **Templates**: AGENTS.md/CLAUDE.md, feature-list.json, init.sh, progress.md, session-handoff.md
-- **Scripts**: scaffold, validate, render HTML assessment, run structural benchmark
+- **7 reference patterns**: Memory Persistence (`ai-memory` + `feature_list.json`), Skill Runtime, Context Engineering, Tool Registry, Multi-Agent Coordination, Lifecycle & Bootstrap, Gotchas
+- **Templates**: `AGENTS.md`/`CLAUDE.md`, `feature-list.json` (`active_context` + `features`), `init.sh`
+- **Scripts**: scaffold, validate, render HTML assessment, run structural benchmark (with automated self-check)
 - **10 built-in eval test cases**
 
 See [harness-creator/README.md](harness-creator/README.md) for full documentation.

@@ -1,5 +1,7 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { access, chmod, copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -65,6 +67,30 @@ export async function copyTemplate(templateName, targetPath, replacements = {}, 
     await chmod(targetPath, 0o755);
   }
   return { path: targetPath, status: 'written' };
+}
+
+export function detectAiMemory() {
+  const home = os.homedir();
+  const candidateBins = [
+    path.join(home, '.local', 'bin', 'ai-memory'),
+    '/opt/homebrew/bin/ai-memory',
+    '/usr/local/bin/ai-memory',
+    '/usr/bin/ai-memory'
+  ];
+
+  for (const bin of candidateBins) {
+    if (existsSync(bin)) {
+      return { installed: true, binaryPath: bin };
+    }
+  }
+
+  const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+  const probe = spawnSync(whichCmd, ['ai-memory'], { encoding: 'utf8' });
+  if (probe.status === 0 && probe.stdout.trim()) {
+    return { installed: true, binaryPath: probe.stdout.trim().split(/\r?\n/)[0] };
+  }
+
+  return { installed: false, binaryPath: null };
 }
 
 export function detectPackageManager(root, explicit) {
@@ -150,10 +176,6 @@ export function verificationCommands(project, explicitPackageManager) {
   };
 
   if (project.stack === 'python') {
-    // python3 is the portable name (many systems no longer ship a bare `python`).
-    // pytest exits 5 when it collects zero tests — harmless here, so don't let `set -e`
-    // treat "no tests yet" as a failure. compileall's -x skips virtualenvs and build
-    // artifacts so a syntax check doesn't choke on dependencies it shouldn't compile.
     const py = 'python3';
     return [
       `${py} -m pytest || [ $? -eq 5 ]`,
@@ -197,15 +219,83 @@ set -e
 
 echo "=== Harness Initialization ==="
 
+WIKI_REMOTE_DEFAULT="\${AI_MEMORY_WIKI_REMOTE:-git@github.com:randykaskuser/ai-memory-wiki.git}"
+
+if [ "\${1:-}" = "--setup-ai-memory" ] || [ "\${AUTO_SETUP_AI_MEMORY:-0}" = "1" ]; then
+  echo "=== Auto-Setting up ai-memory & Cross-PC Wiki Sync ==="
+  if ! command -v ai-memory >/dev/null 2>&1; then
+    if command -v brew >/dev/null 2>&1; then
+      brew install akitaonrails/tap/ai-memory
+    else
+      curl -fsSL https://github.com/akitaonrails/ai-memory/releases/latest/download/install.sh | sh
+      export PATH="\$HOME/.local/bin:\$PATH"
+    fi
+  fi
+  ai-memory setup --yes || ai-memory setup
+  AI_MEM_WIKI="\${AI_MEMORY_DATA_DIR:-\$HOME/Library/Application Support/ai-memory}/wiki"
+  [ ! -d "\$AI_MEM_WIKI" ] && AI_MEM_WIKI="\${XDG_DATA_HOME:-\$HOME/.local/share}/ai-memory/wiki"
+  if [ -d "\$AI_MEM_WIKI/.git" ]; then
+    if ! git -C "\$AI_MEM_WIKI" remote get-url origin >/dev/null 2>&1; then
+      git -C "\$AI_MEM_WIKI" remote add origin "\$WIKI_REMOTE_DEFAULT"
+    fi
+    if git -C "\$AI_MEM_WIKI" fetch origin main 2>/dev/null; then
+      git -C "\$AI_MEM_WIKI" merge --ff-only FETCH_HEAD 2>/dev/null || git -C "\$AI_MEM_WIKI" reset --hard origin/main
+      ai-memory reindex >/dev/null 2>&1 || true
+      echo "ai-memory wiki: synced & reindexed from \$WIKI_REMOTE_DEFAULT"
+    fi
+  fi
+fi
+
+if command -v ai-memory >/dev/null 2>&1; then
+  echo "=== Checking ai-memory daemon & wiki sync ==="
+  if ai-memory status >/dev/null 2>&1; then
+    echo "ai-memory: active"
+  else
+    echo "⚠️  WARNING: ai-memory is installed but the daemon is not configured/running."
+    echo "   Run: ./init.sh --setup-ai-memory   (or: ai-memory setup)"
+  fi
+  AI_MEM_WIKI="\${AI_MEMORY_DATA_DIR:-\$HOME/Library/Application Support/ai-memory}/wiki"
+  [ ! -d "\$AI_MEM_WIKI" ] && AI_MEM_WIKI="\${XDG_DATA_HOME:-\$HOME/.local/share}/ai-memory/wiki"
+  if [ -d "\$AI_MEM_WIKI/.git" ]; then
+    if git -C "\$AI_MEM_WIKI" remote get-url origin >/dev/null 2>&1; then
+      BEFORE_HEAD="\$(git -C "\$AI_MEM_WIKI" rev-parse HEAD 2>/dev/null || true)"
+      git -C "\$AI_MEM_WIKI" fetch -q origin main 2>/dev/null || true
+      git -C "\$AI_MEM_WIKI" merge --ff-only FETCH_HEAD >/dev/null 2>&1 || true
+      AFTER_HEAD="\$(git -C "\$AI_MEM_WIKI" rev-parse HEAD 2>/dev/null || true)"
+      if [ -n "\$BEFORE_HEAD" ] && [ "\$BEFORE_HEAD" != "\$AFTER_HEAD" ]; then
+        echo "ai-memory wiki: pulled new memory from remote, running reindex..."
+        ai-memory reindex >/dev/null 2>&1 || true
+      fi
+      git -C "\$AI_MEM_WIKI" push -q origin main 2>/dev/null || true
+      echo "ai-memory wiki: synced with remote origin"
+    else
+      echo "⚠️  WARNING: ai-memory wiki is not yet linked to your cross-PC git remote."
+      echo "   Run: ./init.sh --setup-ai-memory"
+    fi
+  fi
+else
+  echo "========================================================================"
+  echo "⚠️  WARNING: 'ai-memory' belum terinstal di PC ini!"
+  echo "   Progres fitur dasar tetap terbaca dari feature_list.json#active_context,"
+  echo "   namun histori memori wiki & auto-handoff membutuhkan ai-memory."
+  echo ""
+  echo "   👉 Jalankan 1 perintah ini untuk install & sync otomatis di PC baru:"
+  echo "      ./init.sh --setup-ai-memory"
+  echo ""
+  echo "   Atau manual:"
+  echo "      brew install akitaonrails/tap/ai-memory && ai-memory setup"
+  echo "========================================================================"
+fi
+
 ${body}
 
 echo "=== Verification Complete ==="
 echo ""
 echo "Next steps:"
-echo "1. Read feature_list.json to see current feature state"
-echo "2. Pick ONE unfinished feature to work on"
+echo "1. Review ai-memory context / active handoffs and feature_list.json#active_context"
+echo "2. Pick ONE unfinished feature from feature_list.json to work on"
 echo "3. Implement only that feature"
-echo "4. Re-run verification before claiming done"
+echo "4. Re-run ./init.sh and update feature_list.json (evidence + active_context) before claiming done"
 `;
 }
 
@@ -222,9 +312,7 @@ export function scoreHarness(files) {
   const allText = files.map((file) => `${file.path}\n${file.content}`).join('\n\n');
   const agents = byPath.get('AGENTS.md') || byPath.get('CLAUDE.md') || '';
   const featureList = byPath.get('feature_list.json') || byPath.get('feature-list.json') || '';
-  const progress = byPath.get('progress.md') || '';
   const init = byPath.get('init.sh') || '';
-  const handoff = byPath.get('session-handoff.md') || '';
 
   const checks = {
     instructions: [
@@ -232,25 +320,28 @@ export function scoreHarness(files) {
       structuredHas(agents, ['Startup Workflow', 'Before writing code'], 'Startup workflow documented'),
       structuredHas(agents, ['Definition of Done', 'done only when'], 'Definition of done documented'),
       structuredHas(agents, ['Verification Commands', './init.sh', 'test', 'verify'], 'Verification commands discoverable'),
-      structuredHas(agents, ['feature_list.json', 'progress.md'], 'State artifacts routed from instructions')
+      structuredHas(agents, ['feature_list.json', 'feature-list.json'], 'Feature state artifact routed from instructions')
     ],
     state: [
       hasFile(byPath, ['feature_list.json', 'feature-list.json'], 'Feature tracker exists'),
-      jsonFeatureList(featureList, 'Feature tracker is valid and has feature fields'),
-      hasFile(byPath, ['progress.md'], 'Progress log exists'),
-      structuredHas(progress, ['Current State', 'What', 'Next'], 'Progress log supports restart'),
-      structuredHas(handoff || progress, ['Blockers', 'Files', 'Next Session'], 'Handoff captures blockers/files/next step')
+      jsonFeatureList(featureList, 'Feature tracker has valid active_context (cross-PC checkpoint) and features'),
+      textHas(featureList, ['evidence', 'verification'], 'Feature tracker includes verification evidence field'),
+      structuredHas(agents, ['ai-memory'], 'Persistent memory delegated to ai-memory'),
+      {
+        pass: !byPath.has('progress.md') && !byPath.has('claude-progress.md'),
+        message: 'No overlapping manual progress.md file in repository'
+      }
     ],
     verification: [
       hasFile(byPath, ['init.sh'], 'Verification entrypoint exists'),
-      textHas(init, ['set -e'], 'Verification fails fast'),
-      textHas(init + agents, ['test', 'pytest', 'vitest', 'cargo test', 'go test', 'dotnet test'], 'Test command documented'),
-      textHas(init + agents, ['build', 'type', 'lint', 'compile'], 'Static/build check documented'),
-      textHas(allText, ['Evidence', 'Verification Evidence', 'command and output'], 'Verification evidence is recorded')
+      textHas(init, ['set -e', 'set -euo pipefail'], 'Verification fails fast'),
+      textHas(init + agents, ['test', 'pytest', 'vitest', 'cargo test', 'go test', 'dotnet test', 'Verification Commands'], 'Test command documented'),
+      textHas(init + agents, ['build', 'type', 'lint', 'compile', 'Verification Complete', 'Baseline OK'], 'Static/build check documented'),
+      textHas(allText, ['Evidence', 'Verification Evidence', 'evidence', 'verification'], 'Verification evidence is recorded')
     ],
     scope: [
       structuredHas(agents, ['One feature at a time', 'one-feature-at-a-time'], 'One-feature-at-a-time rule exists'),
-      textHas(featureList, ['dependencies'], 'Feature dependencies are tracked'),
+      textHas(featureList + agents, ['dependencies', 'priority', 'active_context'], 'Feature ordering / dependencies are tracked'),
       textHas(agents + featureList, ['status'], 'Feature status is explicit'),
       structuredHas(agents, ['Stay in scope', 'scope'], 'Scope boundary documented'),
       structuredHas(agents, ['Definition of Done'], 'Completion gate limits scope closure')
@@ -258,9 +349,12 @@ export function scoreHarness(files) {
     lifecycle: [
       hasFile(byPath, ['init.sh'], 'Startup script exists'),
       structuredHas(agents, ['End of Session', 'Before ending'], 'End-of-session procedure exists'),
-      hasFile(byPath, ['session-handoff.md'], 'Session handoff template exists'),
-      structuredHas(progress + '\n' + handoff, ['Last Updated', 'Current Objective', 'Recommended Next Step'], 'Session restart markers exist'),
-      textHas(agents + init, ['restartable', 'clean', 'Next steps'], 'Clean restart path documented')
+      structuredHas(agents, ['ai-memory', 'handoff'], 'Cross-agent handoff and lifecycle hooks routed via ai-memory'),
+      {
+        pass: !byPath.has('session-handoff.md'),
+        message: 'No overlapping manual session-handoff.md file in repository'
+      },
+      textHas(agents + init, ['restartable', 'clean', 'Next steps', 'Baseline OK'], 'Clean restart path documented')
     ]
   };
 
@@ -278,8 +372,6 @@ export function scoreHarness(files) {
   const total = Object.values(subsystems).reduce((sum, item) => sum + item.score, 0);
   const overall = Math.round((total / (SUBSYSTEMS.length * 5)) * 100);
   const ranked = Object.entries(subsystems).sort((a, b) => a[1].score - b[1].score);
-  // A bottleneck only means something when a subsystem is weaker than the rest.
-  // When every subsystem already maxes out, reporting one is misleading.
   const bottleneck = ranked[0][1].score === 5 ? null : ranked[0][0];
   return { overall, bottleneck, subsystems };
 }
@@ -293,10 +385,6 @@ function textHas(text, needles, message) {
   return { pass: needles.some((needle) => lower.includes(needle.toLowerCase())), message };
 }
 
-// A real instruction doc carries its load-bearing phrases in structure — headings,
-// list items, tables, fenced code, or bold lead-ins — not in free prose. Scoring only
-// the structured lines means a genuine harness still passes, while a file that just
-// sprinkles the right keywords across a paragraph to game the score does not.
 function structuredText(markdown) {
   const kept = [];
   let inFence = false;
@@ -321,13 +409,20 @@ function structuredHas(markdown, needles, message) {
 function jsonFeatureList(text, message) {
   try {
     const parsed = JSON.parse(text);
-    const valid = Array.isArray(parsed.features) && parsed.features.every((feature) =>
+    const ctx = parsed.active_context;
+    const validContext = Boolean(
+      ctx
+      && typeof ctx.current_feature_id === 'string'
+      && typeof ctx.summary === 'string'
+      && Array.isArray(ctx.blockers)
+      && typeof ctx.next_step === 'string'
+    );
+    const validFeatures = Array.isArray(parsed.features) && parsed.features.every((feature) =>
       typeof feature.id === 'string'
-      && typeof feature.name === 'string'
-      && typeof feature.description === 'string'
+      && (typeof feature.name === 'string' || typeof feature.title === 'string')
       && typeof feature.status === 'string'
     );
-    return { pass: valid, message };
+    return { pass: validContext && validFeatures, message };
   } catch {
     return { pass: false, message };
   }
@@ -340,6 +435,7 @@ export async function loadHarnessFiles(root) {
     'feature_list.json',
     'feature-list.json',
     'progress.md',
+    'claude-progress.md',
     'session-handoff.md',
     'init.sh'
   ];
@@ -408,7 +504,7 @@ export function htmlReport(result, title = 'Harness Assessment') {
   <main>
     <header>
       <h1>${escapeHtml(title)}</h1>
-      <p>Five-subsystem harness validation report.</p>
+      <p>Five-subsystem hybrid harness validation report (Harness Engineering + ai-memory).</p>
       <div class="summary">
         <div class="metric">Overall<strong>${result.overall}/100</strong></div>
         <div class="metric">Bottleneck<strong>${escapeHtml(result.bottleneck ?? 'none')}</strong></div>

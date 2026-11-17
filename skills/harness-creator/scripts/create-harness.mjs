@@ -3,6 +3,7 @@ import { chmod, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import {
   copyTemplate,
+  detectAiMemory,
   detectPackageManager,
   detectProject,
   exists,
@@ -17,13 +18,12 @@ const args = parseArgs(process.argv.slice(2));
 if (args.help) {
   console.log(`Usage: node scripts/create-harness.mjs [--target DIR] [--agent-file AGENTS.md|CLAUDE.md] [--package-manager npm|pnpm|yarn|bun] [--force]
 
-Creates a minimal production harness:
-  AGENTS.md or CLAUDE.md
-  feature_list.json
-  progress.md
-  session-handoff.md
-  init.sh
+Creates a non-overlapping hybrid harness (Harness Engineering + ai-memory):
+  AGENTS.md or CLAUDE.md   (instructions, scope, verification & ai-memory routing)
+  feature_list.json        (structured backlog, dependency graph & verification evidence)
+  init.sh                  (fail-fast environment & test verification gate)
 
+Session continuity and cross-agent handoffs are delegated to ai-memory (no progress.md or session-handoff.md repo noise).
 Existing files are skipped unless --force is set.`);
   process.exit(0);
 }
@@ -42,8 +42,8 @@ await mkdir(target, { recursive: true });
 const replacements = {
   AGENT_FILE_NAME: agentFile,
   PROJECT_PURPOSE: project.stack === 'generic'
-    ? 'Project harness for reliable agent-assisted development.'
-    : `Project harness for reliable agent-assisted development in a ${project.stack} codebase.`,
+    ? 'Project harness for reliable agent-assisted development (powered by ai-memory for session continuity and cross-agent handoffs).'
+    : `Project harness for reliable agent-assisted development in a ${project.stack} codebase (powered by ai-memory for session continuity and cross-agent handoffs).`,
   VERIFICATION_COMMANDS: commands.map((command) => `- \`${command}\``).join('\n'),
   PRIMARY_VERIFICATION_COMMAND: './init.sh'
 };
@@ -51,8 +51,6 @@ const replacements = {
 const results = [];
 results.push(await copyTemplate('agents.md', path.join(target, agentFile), replacements, { force }));
 results.push(await copyTemplate('feature-list.json', path.join(target, 'feature_list.json'), {}, { force }));
-results.push(await copyTemplate('progress.md', path.join(target, 'progress.md'), {}, { force }));
-results.push(await copyTemplate('session-handoff.md', path.join(target, 'session-handoff.md'), {}, { force }));
 
 const initPath = path.join(target, 'init.sh');
 if (force || !await exists(initPath)) {
@@ -63,8 +61,11 @@ if (force || !await exists(initPath)) {
   results.push({ path: initPath, status: 'skipped', reason: 'exists' });
 }
 
-console.log(`Created harness for ${target}`);
+const aiMem = detectAiMemory();
+
+console.log(`Created hybrid harness for ${target}`);
 console.log(`Detected stack: ${project.stack}`);
+console.log(`Memory & handoff backend: ai-memory (${aiMem.installed ? `detected at ${aiMem.binaryPath}` : 'not detected on PATH; install via https://aimemory.sh'})`);
 console.log(`Verification commands:`);
 for (const command of commands) {
   console.log(`  - ${command}`);

@@ -1,10 +1,10 @@
 {
   "name": "harness-creator",
-  "version": "1.0.0",
-  "description": "Harness engineering for AI coding agents — five subsystems, memory persistence, session continuity, verification workflows, scope control, lifecycle management.",
+  "version": "1.1.0",
+  "description": "Hybrid Harness Engineering + ai-memory skill for AI coding agents — five subsystems, structured feature/evidence tracking, fail-fast verification workflows, scope control, and automated cross-agent memory/handoffs via ai-memory without progress.md repo noise.",
   "license": "MIT",
-  "author": "Learn Harness Engineering",
-  "repository": "https://github.com/walkinglabs/learn-harness-engineering",
+  "author": "Learn Harness Engineering (Hybrid ai-memory Edition)",
+  "repository": "https://github.com/randykaskuser/learn-harness-engineering",
   "languages": ["en", "zh"],
   "compatibility": {
     "minCliVersion": "0.1.0",
@@ -13,6 +13,8 @@
       "codex-cli",
       "cursor",
       "windsurf",
+      "antigravity",
+      "gemini-cli",
       "generic"
     ]
   },
@@ -28,6 +30,7 @@
   ],
   "triggers": [
     "harness engineering",
+    "ai-memory",
     "agent reliability",
     "session continuity",
     "memory persistence",
@@ -56,9 +59,7 @@
       "templates/agents.md",
       "templates/feature-list.json",
       "templates/feature-list.schema.json",
-      "templates/init.sh",
-      "templates/progress.md",
-      "templates/session-handoff.md"
+      "templates/init.sh"
     ]
   }
 }

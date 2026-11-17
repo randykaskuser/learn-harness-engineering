@@ -1,9 +1,39 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Feature List",
-  "description": "Track feature implementation state for agent-driven development",
+  "title": "Feature List & Cross-Machine Active Context",
+  "description": "Track feature implementation state and portable cross-machine handoff context for agent-driven development",
   "type": "object",
   "properties": {
+    "active_context": {
+      "type": "object",
+      "description": "Lightweight git-tracked handoff summary so switching PCs without syncing ai-memory retains the active objective, blockers, and next step",
+      "properties": {
+        "current_feature_id": {
+          "type": "string",
+          "description": "ID of the feature currently in progress (e.g., feat-001)"
+        },
+        "last_updated": {
+          "type": "string",
+          "description": "ISO date or timestamp of the last session update"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Brief summary of current progress and key decisions"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Open blockers or unresolved questions"
+        },
+        "next_step": {
+          "type": "string",
+          "description": "Exact next action for the next session or machine"
+        }
+      },
+      "required": ["current_feature_id", "summary", "blockers", "next_step"]
+    },
     "features": {
       "type": "array",
       "items": {
@@ -43,5 +73,5 @@
       }
     }
   },
-  "required": ["features"]
+  "required": ["active_context", "features"]
 }

@@ -5,6 +5,8 @@
     <source media="(prefers-color-scheme: dark)" srcset="assets/readme/harness-wordmark-dark.svg">
     <img src="assets/readme/harness-wordmark.svg" alt="Learn Harness Engineering" width="880">
   </picture>
+  <br>
+  <sub>⚡ Hybrid <code>ai-memory</code> Edition</sub>
 </h1>
 
 <p align="center">
@@ -25,7 +27,26 @@
   <a href="docs-readme/uk-UA/README.md"><img alt="Українська" src="https://img.shields.io/badge/UK-Українська-0057B7?style=flat-square"></a>
 </p>
 
-<p align="center"><strong>A project-based course on building the environment, state management, verification, and control mechanisms that make AI coding agents work reliably.</strong></p>
+<p align="center"><strong>A project-based course & hybrid skill toolkit combining Harness Engineering (in-repo scope, verification gates & cross-PC checkpoints) with <a href="https://github.com/akitaonrails/ai-memory">ai-memory</a> (automated session memory & cross-agent handoffs).</strong></p>
+
+> ⚡ **Hybrid Edition (`learn-harness-engineering` + `ai-memory`):**
+> In this repository, [`skills/harness-creator/`](./skills/harness-creator/) has been unified with **[`akitaonrails/ai-memory`](https://github.com/akitaonrails/ai-memory)** to eliminate overlapping state files (`progress.md` / `session-handoff.md`):
+> 1. **Install `harness-creator` skill:** `npx skills add randykaskuser/learn-harness-engineering --skill harness-creator`
+> 2. **One-Command Setup & Cross-PC Auto-Sync:** Run `./init.sh --setup-ai-memory` in any harnessed repo — it installs `ai-memory`, links your local `wiki` directory to your private GitHub mirror (`git@github.com:randykaskuser/ai-memory-wiki.git`), runs `ai-memory reindex`, and registers a **background LaunchAgent (`WatchPaths` + 2-min timer)** that automatically pushes & pulls new `ai-memory` commits across PCs.
+> 3. **Scaffold any repo:** Generates only `AGENTS.md`, `feature_list.json` (with portable cross-PC `active_context` + `features`), and `init.sh` — giving you strict verification gates, zero-LLM automatic session capture, claim-once cross-agent handoffs, and 100% cross-PC git portability without markdown log noise.
+
+### 📋 Copy-Paste Prompt to Setup Harness × `ai-memory` (New PC or New Repo)
+
+Copy and paste this prompt directly into your AI coding agent (Claude Code, Codex, Cursor, Antigravity, etc.):
+
+```text
+Setup Hybrid Harness + ai-memory on this repository and machine:
+1. Check if `ai-memory` is installed and running (`ai-memory status`). If not installed, install it (`brew install akitaonrails/tap/ai-memory` on macOS/Linux or `curl -fsSL https://github.com/akitaonrails/ai-memory/releases/latest/download/install.sh | sh`) and run `ai-memory setup --yes`.
+2. Link the local `ai-memory` wiki directory (`~/Library/Application Support/ai-memory/wiki` on macOS or `~/.local/share/ai-memory/wiki` on Linux) to `git@github.com:randykaskuser/ai-memory-wiki.git` if not yet linked, pull `origin/main`, run `ai-memory reindex`, and enable the background auto-push/pull sync (`./init.sh --setup-ai-memory`).
+3. Install the hybrid `harness-creator` skill into `.claude/skills/harness-creator` from `https://github.com/randykaskuser/learn-harness-engineering` (`skills/harness-creator`).
+4. If this repository does not have `AGENTS.md`, `feature_list.json`, and `init.sh` yet, run `node .claude/skills/harness-creator/scripts/create-harness.mjs --target .` and tailor `AGENTS.md` and `feature_list.json` to this repository's real stack and test commands.
+5. Run `./init.sh` and `node .claude/skills/harness-creator/scripts/validate-harness.mjs --target .` to confirm 100/100 score and active `ai-memory` sync.
+```
 
 <p align="center">
   <img src="https://img.shields.io/badge/Lectures-14-blue?style=flat-square" alt="14 Lectures">
@@ -297,22 +318,20 @@ You don't need to read all 14 lectures before you start getting value. If you're
 The idea is simple: instead of just writing prompts, give your agent a set of structured files that define what to do, what's been done, and how to verify the work. These files live inside your repo, so every session starts from the same state.
 
 ```text
-    YOUR PROJECT ROOT
-    ├── AGENTS.md              <-- the agent's operating manual
+    YOUR PROJECT ROOT (HYBRID HARNESS + AI-MEMORY)
+    ├── AGENTS.md              <-- the agent's operating manual & ai-memory routing
     ├── CLAUDE.md              <-- (alternative, if using Claude Code)
-    ├── init.sh                <-- runs install + verify + start
-    ├── feature_list.json      <-- what features exist, which are done
-    ├── claude-progress.md     <-- session progress (historical filename; agent-agnostic)
+    ├── init.sh                <-- checks ai-memory + runs install, lint, test & build
+    ├── feature_list.json      <-- active_context (cross-PC checkpoint) + features & test evidence
     └── src/                   <-- your actual code
+    (+ ai-memory daemon/hooks running in the background for automatic wiki memory & cross-agent handoffs)
 ```
 
-Grab the starter templates from the [Resource Library](https://walkinglabs.github.io/learn-harness-engineering/en/resources/) and drop them into your project. That's it. Four files, and your agent sessions will already be significantly more stable than running on prompts alone.
+Scaffold this directly in your project using [`skills/harness-creator/`](./skills/harness-creator/):
 
-`claude-progress.md` is a generic, repository-local session progress log; the
-name is retained for compatibility with the course examples. It is not tied to
-Claude Code and is not updated automatically by any agent. Codex, OpenHands,
-Antigravity, and other coding agents can use the same file when their root
-instructions tell them to read it at startup and update it before handoff.
+```bash
+node skills/harness-creator/scripts/create-harness.mjs --target /path/to/your/project
+```
 
 ---
 
